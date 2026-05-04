@@ -6,14 +6,14 @@ from pathlib import Path
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from ..core.logger import get_logger
-from ..db.database import AsyncSessionLocal
+from ...core.logger import get_logger
+from ..db import AsyncSessionLocal
 from ..db.models import Document
 from .client import get_vector_store
 
 logger = get_logger("retirement.ingest")
 
-DOCS_DIR = Path(__file__).parent.parent / "data" / "docs"
+DOCS_DIR = Path(__file__).parent.parent.parent / "data" / "docs"
 SPLITTER = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
 
