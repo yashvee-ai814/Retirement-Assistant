@@ -1,73 +1,59 @@
 # Retirement Assistant
 
-A RAG-powered agentic chatbot that helps UK users understand their retirement options through educational, factual pension guidance.
+An agentic RAG chatbot that helps UK pension members understand their retirement options through accurate, document-grounded guidance.
 
 ---
 
-## What it Does
+## Key Features
 
-- **User authentication** — sign in or create an account by username; login events recorded in PostgreSQL
-- **RAG document search** — pension PDFs ingested into ChromaDB; results cited with filename, page, and excerpt
-- **Agentic tool selection** — LangGraph agent picks from 11 tools (search, profile, 7 calculators, state pension, clarification)
-- **Deterministic math** — all financial projections use hardcoded formulas, never LLM guessing
+- **User authentication** — username-based sign-in and registration; full login audit trail in PostgreSQL
+- **RAG document search** — pension PDFs ingested into ChromaDB; responses cited with filename, page, and excerpt
+- **Agentic tool selection** — LangGraph agent dynamically selects from 11 tools (document search, profile management, 7 financial calculators, state pension lookup, clarification)
+- **Deterministic calculations** — all financial projections computed via hardcoded formulas, eliminating LLM hallucination risk
 - **Full persistence** — conversations, tool calls, calculations, and user profiles stored in PostgreSQL
-- **Activity panel** — every tool call (inputs + result) and cited document source shown in real time
-- **Admin UI** — upload pension PDFs via drag-and-drop; view chunk counts and ingestion status
+- **Live activity panel** — every tool invocation (inputs + result) and cited source visible to the user in real time
+- **Admin document management** — drag-and-drop PDF upload with chunk count and ingestion status tracking
 
 ---
 
 ## Problem Statement
 
-Many pension members struggle to understand their withdrawal options. Pension documentation is detailed and technical by nature, and for members who are not financially literate, navigating it can feel overwhelming — making it difficult to reach a confident decision independently.
-
-This leads to a high volume of inbound calls to pension providers. Call handlers routinely spend **10–15 minutes per call** walking members through basic concepts such as drawdown vs. annuity, tax implications of lump-sum withdrawals, and which allowances a given choice would trigger. Despite the time invested, these calls frequently end without a concrete outcome: members leave uncertain, and call handlers move on without having generated a measurable result for the business.
-
-The core issue is a gap between the complexity of pension information and the accessibility of guidance available to members before they pick up the phone.
+- Pension documentation is dense and technically complex, leaving many members unable to navigate their options independently
+- Members default to calling pension providers, where handlers spend **10–15 minutes per call** covering basic concepts — drawdown vs. annuity, lump-sum tax implications, applicable allowances
+- These calls frequently end without a concrete outcome: members remain uncertain; handlers move on without a measurable result
+- The root cause is a gap between the complexity of pension information and the accessibility of pre-call guidance
 
 ---
 
 ## Solution
 
-This project addresses that gap with an **agentic AI chatbot powered by Retrieval-Augmented Generation (RAG)**. Members can ask plain-English questions about their pension options and receive clear, accurate, document-grounded responses — without needing to interpret dense policy documents themselves.
+An **agentic AI chatbot powered by Retrieval-Augmented Generation (RAG)**, purpose-built for the pension domain:
 
-The chatbot is designed specifically for the pension domain:
-
-- Answers are drawn from ingested pension PDFs, with cited sources so members can verify information
-- An LangGraph agent selects from specialised tools — including seven deterministic financial calculators — to give members personalised projections rather than generic guidance
-- Conversation history and user profiles are persisted, so the assistant can provide continuity across sessions
-- The system is fully educational and factual, signposting professional advice where appropriate, rather than making recommendations
-
-Members can arrive at an informed view of their options — and, if they do call, the conversation is far more productive.
+- Members ask plain-English questions and receive clear, document-grounded answers with verifiable citations
+- A LangGraph agent selects from seven deterministic financial calculators to deliver personalised projections rather than generic guidance
+- Conversation history and user financial profiles are persisted for continuity across sessions
+- The system is strictly educational — it signposts professional advice where appropriate and never makes direct recommendations
 
 ---
 
 ## Benefits
 
-**For call handlers and the business:**
-- Routine explanatory calls are reduced, freeing handler capacity for higher-value interactions that actually result in outcomes
-- Handlers no longer need to spend the first 10–15 minutes of each call establishing foundational understanding — members arrive better informed
-- Estimated time saving of at least **30 minutes per call handler per day**, which compounds across a team and translates directly to increased throughput and reduced operational cost
+**For the business and call handlers:**
+- Reduces routine explanatory calls, freeing handler capacity for higher-value interactions
+- Members arrive better informed, eliminating the 10–15 minute foundational briefing at the start of each call
+- Estimated saving of **30+ minutes per handler per day**, compounding across teams into measurable throughput and cost gains
 
 **For members:**
-- Members can explore their options at their own pace, in plain language, without time pressure
-- Interactive calculators provide personalised projections (projected pot, drawdown income, shortfall analysis, readiness score) to support decision-making
-- Members who need further guidance are better equipped to have a focused, productive conversation with a professional
+- Self-serve guidance at their own pace, in plain language, without time pressure
+- Personalised projections across pot value, drawdown income, shortfall, and retirement readiness score
+- Better equipped for focused, productive conversations with advisers when needed
 
 ---
 
 ## Future Scope
 
-- **AI platform integration (ChatGPT / external assistants)**  
-
-  Many users already rely on AI tools such as ChatGPT for information and decision-making. This assistant could be exposed via APIs or Model Context Protocol (MCP) integrations, enabling it to be consumed within existing AI ecosystems rather than requiring a standalone interface.
-
-- **Voice and telephony integration**  
-
-  The solution can be extended to voice-based channels using speech-to-text and text-to-speech pipelines. This would allow users to interact with the assistant before reaching a live call handler, creating a natural triage layer where:
-
-  - Simple queries are resolved instantly  
-
-  - More complex cases reach handlers with context already established 
+- **AI platform integration** — expose the assistant via API or Model Context Protocol (MCP) to embed it within existing AI ecosystems (e.g. ChatGPT, enterprise assistants) rather than requiring a standalone interface
+- **Voice and telephony integration** — extend to voice channels via speech-to-text and text-to-speech pipelines, enabling pre-call triage: simple queries resolved instantly, complex cases escalated with context already established
 
 ---
 
