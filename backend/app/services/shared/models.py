@@ -11,6 +11,16 @@ class LoginResponse(BaseModel):
     username: str
 
 
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=50)
+
+
+class RegisterResponse(BaseModel):
+    user_id: str
+    username: str
+    created: bool = True
+
+
 class UserProfileData(BaseModel):
     age: Optional[int] = Field(default=None, ge=16, le=100)
     current_pot: Optional[float] = Field(default=None, ge=0)
@@ -36,7 +46,6 @@ class ChatRequest(BaseModel):
     user_id: str = Field(min_length=1)
     message: Optional[str] = None
     resume_input: Optional[dict] = None
-    auto_approve_tools: bool = False
 
 
 class ToolCallInfo(BaseModel):
@@ -52,15 +61,14 @@ class SourceReference(BaseModel):
 
 
 class PendingInterrupt(BaseModel):
-    type: Literal["tool_approval", "clarification"]
-    tool_calls: Optional[list[ToolCallInfo]] = None
+    type: Literal["clarification"]
     question: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
     session_id: str
     reply: str
-    status: Literal["complete", "awaiting_tool_approval", "awaiting_clarification"]
+    status: Literal["complete", "awaiting_clarification"]
     pending_interrupt: Optional[PendingInterrupt] = None
     tool_calls_used: list[ToolCallInfo] = Field(default_factory=list)
     sources: list[SourceReference] = Field(default_factory=list)
