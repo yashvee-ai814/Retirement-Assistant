@@ -1,97 +1,119 @@
 # Retirement Assistant
 
-A RAG-powered agentic assistant for UK retirement and pension guidance. Users log in by username, their financial profile is persisted in PostgreSQL, and a LangGraph agent combines document retrieval (Chroma) with deterministic financial calculations to answer questions.
+A RAG-powered agentic chatbot that helps UK users understand their retirement options through educational, factual pension guidance.
 
-## What it does
+---
 
-- **User authentication** — login by username; profile persisted in PostgreSQL
-- **RAG document search** — pension policy PDFs ingested into Chroma vector store; sources cited with filename, page, and excerpt
-- **Agentic tool selection** — LangGraph agent picks the right tool (RAG, profile DB, or 7 financial calculators)
-- **Deterministic math** — all projections use hardcoded financial formulas
-- **Human-in-the-loop** — tool approval before every non-trivial tool call
-- **Multi-turn persistence** — conversation history survives page refreshes (stored in PostgreSQL)
-- **Admin UI** — upload pension PDFs via drag-and-drop; view chunk counts and ingestion status
+## What it Does
+
+- **Username authentication** — simple username-only login; account created automatically on first register
+- **RAG document search** — semantic search over ingested pension PDF documents using ChromaDB and nomic-embed-text embeddings
+- **LangGraph agent with 11 tools** — orchestrates retrieval, financial calculations, profile management, and clarifying questions
+- **Deterministic financial calculators** — projected pot, drawdown income, savings needed, shortfall, readiness score, inflation-adjusted goal
+- **UK state pension info** — eligibility age, annual amount, years until eligible
+- **Multi-turn chat** — full conversation history persisted to PostgreSQL with MemorySaver checkpointing
+- **Activity panel** — right-side panel showing every tool call (with args and results) and document sources for each response
+- **Admin PDF upload** — drag-and-drop PDF ingestion through the Admin page; documents indexed into ChromaDB automatically
 
 ---
 
 ## Architecture
 
-```
-Browser :5173  →  React + Vite + Tailwind
-                       ↓ POST /chat, GET /sessions, PUT /users/{id}/profile …
-FastAPI :8000  →  LangGraph Agent
-                       ↓ Tool calls
-                  ┌─────────────────────────────┐
-                  │  search_pension_documents    │ → Chroma :8001
-                  │  get/update_user_profile     │ → PostgreSQL :5432
-                  │  calculate_projected_pot     │ ─┐
-                  │  calculate_drawdown_income   │  │ Pure Python math
-                  │  calculate_monthly_savings   │  │
-                  │  calculate_shortfall         │  │
-                  │  calculate_readiness_score   │  │
-                  │  calculate_inflation_goal    │  │
-                  │  get_uk_state_pension_info   │ ─┘
-                  │  ask_human                   │ → interrupt()
-                  └─────────────────────────────┘
-                  LLM: Ollama gpt-oss:120b-cloud (Mac host :11434)
+```mermaid
+flowchart TD
+    A[Browser :5173] --> B[FastAPI :8000]
+    B --> C[LangGraph Agent]
+    C --> D[Ollama :11434\ngpt-oss:120b-cloud + nomic-embed-text]
+    C --> E[ChromaDB :8001\nsemantic search]
+    C --> F[PostgreSQL :5432\nusers · sessions · profiles · tool audit]
+    C --> G[Pure Python\n7 financial calculators]
+    B --> A
 ```
 
-### Service ports
+---
 
-| Service  | Port | Description                          |
-|----------|------|--------------------------------------|
-| frontend | 5173 | React dev server (Vite)              |
-| backend  | 8000 | FastAPI REST API                     |
-| chroma   | 8001 | Vector store (Chroma HTTP server)    |
-| postgres | 5432 | Relational DB (users, sessions, docs)|
-| pgadmin  | 5050 | pgAdmin 4 web UI                     |
-| ollama   | 11434| LLM runtime on Mac host              |
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + Vite 5 + Tailwind CSS v3 + JSX + TypeScript |
+| Backend | FastAPI + Python 3.12 + LangGraph + LangChain |
+| LLM | Ollama — gpt-oss:120b-cloud |
+| Embeddings | nomic-embed-text (via Ollama) |
+| Vector DB | ChromaDB |
+| Relational DB | PostgreSQL 16 |
+| Package managers | uv (backend) + npm (frontend) |
+| Containers | Docker Compose |
+
+---
+
+## Service Ports
+
+| Service | Port |
+|---|---|
+| Frontend | 5173 |
+| Backend | 8000 |
+| ChromaDB | 8001 |
+| PostgreSQL | 5432 |
+| pgAdmin | 5050 |
+| Ollama (host) | 11434 |
 
 ---
 
 ## Prerequisites
 
-- Docker Desktop installed and running
-- Ollama installed on Mac: `brew install ollama`
-- Models pulled:
+- **Docker Desktop** — [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
+- **Ollama** — install via Homebrew:
   ```bash
-  ollama pull nomic-embed-text
+  brew install ollama
+  ```
+- Pull both required models:
+  ```bash
   ollama pull gpt-oss:120b-cloud
+  ollama pull nomic-embed-text
   ```
 
 ---
 
-## How to run (Docker)
+## How to Run
+
+### Docker (Recommended)
 
 ```bash
-# Step 1 — start Ollama on your Mac
+# 1. Start Ollama on the host
 ollama serve
 
-# Step 2 — build and start all services
+# 2. Start all services
 docker compose up --build
 
-# Step 3 — open the app
+# 3. Open the app
 open http://localhost:5173
 ```
 
-**pgAdmin:** http://localhost:5050 — login: `admin@retirement.local` / `admin`
-Add server: host=`postgres`, user=`retirement`, password=`retirement`
-
----
-
-## Local dev (no Docker)
+**Full reset** (removes containers, volumes, and rebuilt images — use if you want a clean slate):
 
 ```bash
-# Tab 1 — Ollama
+docker compose down -v --rmi local && docker compose up --build
+# -v          removes named volumes (wipes the PostgreSQL database and ChromaDB)
+# --rmi local removes images built by this compose file, forcing a full rebuild
+```
+
+### Locally (No Docker)
+
+Run each command in a separate terminal tab:
+
+```bash
+# Tab 1 — Ollama (always on Mac host)
 ollama serve
 
-# Tab 2 — Start PostgreSQL + Chroma via Docker only
-docker compose up postgres chroma -d
+# Tab 2 — PostgreSQL + ChromaDB only (still uses Docker)
+docker compose up db chroma
 
 # Tab 3 — Backend
 cd backend
+cp ../.env.example .env   # then edit DATABASE_URL to use localhost
 uv sync
-uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload --port 8000
 
 # Tab 4 — Frontend
 cd frontend
@@ -101,27 +123,103 @@ npm run dev
 
 ---
 
-## Ingesting pension PDFs
+## Project Structure
 
-Place any `.pdf` files in `backend/app/data/docs/` before starting the backend.
-They will be automatically ingested into Chroma on startup.
+```
+Retirement-Assistant/
+├── backend/          FastAPI app, LangGraph agent, PostgreSQL, ChromaDB
+├── frontend/         React 18 + Vite + Tailwind SPA
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
 
-You can also upload PDFs via the Admin page in the UI (Sidebar → Documents).
+See [backend/README.md](backend/README.md) for detailed backend docs and [frontend/README.md](frontend/README.md) for frontend docs.
 
 ---
 
-## API endpoints
+## API Reference
 
-| Method | Path                      | Description                           |
-|--------|---------------------------|---------------------------------------|
-| GET    | `/health`                 | Health check + active model           |
-| POST   | `/auth/login`             | Login / register by username          |
-| GET    | `/auth/me`                | Get current user                      |
-| GET    | `/users/{id}/profile`     | Fetch financial profile               |
-| PUT    | `/users/{id}/profile`     | Update financial profile              |
-| POST   | `/chat`                   | Send message or resume interrupt      |
-| GET    | `/sessions`               | List sessions for a user              |
-| DELETE | `/sessions/{id}`          | Delete a session                      |
-| POST   | `/admin/documents`        | Upload and ingest a PDF               |
-| GET    | `/admin/documents`        | List all ingested documents           |
-| DELETE | `/admin/documents/{id}`   | Delete a document                     |
+Full details in [backend/README.md](backend/README.md). Quick summary:
+
+| Method | Path | Description |
+|---|---|---|
+| GET | /health | Health check — returns model name |
+| POST | /auth/login | Log in with username; 404 if not found |
+| POST | /auth/register | Create account; 409 if username taken |
+| GET | /auth/me | Return user details by user_id query param |
+| GET | /users/{id}/profile | Get saved financial profile |
+| PUT | /users/{id}/profile | Update one or more profile fields |
+| POST | /chat | Send a message; returns reply + tool calls + sources |
+| GET | /sessions | List sessions for a user |
+| GET | /sessions/{id}/tool-calls | Tool call history for a session |
+| DELETE | /sessions/{id} | Delete session and all messages |
+| POST | /admin/documents | Upload a PDF for ingestion |
+| GET | /admin/documents | List all ingested documents |
+| DELETE | /admin/documents/{id} | Remove document from ChromaDB, DB, and disk |
+
+---
+
+## Agent Tools
+
+| Tool | Purpose |
+|---|---|
+| search_pension_documents | Semantic search over ingested pension PDFs |
+| get_user_profile | Retrieve stored financial profile for the user |
+| update_user_profile | Persist a confirmed financial detail to the profile |
+| calculate_projected_pot | Future pension pot value using compound growth formula |
+| calculate_drawdown_income | Annual income from drawdown + state pension |
+| calculate_monthly_savings_needed | Monthly contributions needed to reach a target pot |
+| calculate_shortfall | Gap between income goal and projected income |
+| calculate_readiness_score | 0–100 score with label (On track / Needs attention / At risk) |
+| calculate_inflation_adjusted_goal | Inflation-uplifted version of an income goal |
+| get_uk_state_pension_info | State pension amount (£11,502/yr), eligibility age, years until eligible |
+| ask_human | LangGraph interrupt — pauses agent to ask user a clarifying question |
+
+---
+
+## Database Schema
+
+| Table | Purpose |
+|---|---|
+| users | Username + created_at |
+| login_events | Timestamp log of every login |
+| user_profiles | Financial profile fields (age, pot, income goal, etc.) |
+| sessions | Chat session metadata (title, timestamps) |
+| messages | Individual messages within a session |
+| tool_calls | Audit log of every tool invocation and result |
+| calculations | Persisted calculator inputs and outputs |
+| documents | Metadata for ingested PDF documents |
+
+---
+
+## Service Credentials
+
+**PostgreSQL**
+- Host: `localhost:5432`
+- Database: `retirement_db`
+- User: `retirement`
+- Password: `retirement`
+
+**pgAdmin**
+- URL: [http://localhost:5050](http://localhost:5050)
+- Email: `admin@example.com`
+- Password: `admin`
+
+**ChromaDB**
+- URL: [http://localhost:8001](http://localhost:8001)
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` before running locally.
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL async connection string (asyncpg) |
+| `CHROMA_HOST` | ChromaDB hostname (default: `chroma` in Docker, `localhost` locally) |
+| `CHROMA_PORT` | ChromaDB port (default: `8001`) |
+| `OLLAMA_BASE_URL` | Ollama server URL (default: `http://host.docker.internal:11434`) |
+| `OLLAMA_MODEL` | LLM model name (default: `gpt-oss:120b-cloud`) |
+| `OLLAMA_EMBED_MODEL` | Embedding model name (default: `nomic-embed-text`) |
