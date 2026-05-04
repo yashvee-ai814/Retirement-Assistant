@@ -4,7 +4,7 @@ import chromadb
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 
-from ..core.config import settings
+from ...core.config import settings
 
 COLLECTION_NAME = "pension_docs"
 
