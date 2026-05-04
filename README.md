@@ -16,6 +16,61 @@ A RAG-powered agentic chatbot that helps UK users understand their retirement op
 
 ---
 
+## Problem Statement
+
+Many pension members struggle to understand their withdrawal options. Pension documentation is detailed and technical by nature, and for members who are not financially literate, navigating it can feel overwhelming — making it difficult to reach a confident decision independently.
+
+This leads to a high volume of inbound calls to pension providers. Call handlers routinely spend **10–15 minutes per call** walking members through basic concepts such as drawdown vs. annuity, tax implications of lump-sum withdrawals, and which allowances a given choice would trigger. Despite the time invested, these calls frequently end without a concrete outcome: members leave uncertain, and call handlers move on without having generated a measurable result for the business.
+
+The core issue is a gap between the complexity of pension information and the accessibility of guidance available to members before they pick up the phone.
+
+---
+
+## Solution
+
+This project addresses that gap with an **agentic AI chatbot powered by Retrieval-Augmented Generation (RAG)**. Members can ask plain-English questions about their pension options and receive clear, accurate, document-grounded responses — without needing to interpret dense policy documents themselves.
+
+The chatbot is designed specifically for the pension domain:
+
+- Answers are drawn from ingested pension PDFs, with cited sources so members can verify information
+- An LangGraph agent selects from specialised tools — including seven deterministic financial calculators — to give members personalised projections rather than generic guidance
+- Conversation history and user profiles are persisted, so the assistant can provide continuity across sessions
+- The system is fully educational and factual, signposting professional advice where appropriate, rather than making recommendations
+
+Members can arrive at an informed view of their options — and, if they do call, the conversation is far more productive.
+
+---
+
+## Benefits
+
+**For call handlers and the business:**
+- Routine explanatory calls are reduced, freeing handler capacity for higher-value interactions that actually result in outcomes
+- Handlers no longer need to spend the first 10–15 minutes of each call establishing foundational understanding — members arrive better informed
+- Estimated time saving of at least **30 minutes per call handler per day**, which compounds across a team and translates directly to increased throughput and reduced operational cost
+
+**For members:**
+- Members can explore their options at their own pace, in plain language, without time pressure
+- Interactive calculators provide personalised projections (projected pot, drawdown income, shortfall analysis, readiness score) to support decision-making
+- Members who need further guidance are better equipped to have a focused, productive conversation with a professional
+
+---
+
+## Future Scope
+
+- **AI platform integration (ChatGPT / external assistants)**  
+
+  Many users already rely on AI tools such as ChatGPT for information and decision-making. This assistant could be exposed via APIs or Model Context Protocol (MCP) integrations, enabling it to be consumed within existing AI ecosystems rather than requiring a standalone interface.
+
+- **Voice and telephony integration**  
+
+  The solution can be extended to voice-based channels using speech-to-text and text-to-speech pipelines. This would allow users to interact with the assistant before reaching a live call handler, creating a natural triage layer where:
+
+  - Simple queries are resolved instantly  
+
+  - More complex cases reach handlers with context already established 
+
+---
+
 ## Architecture
 
 ```mermaid
