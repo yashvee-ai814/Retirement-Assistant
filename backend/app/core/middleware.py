@@ -6,7 +6,7 @@ from starlette.responses import Response
 
 from .logger import get_logger
 
-logger = get_logger("wealth_advisor.http")
+logger = get_logger("retirement.http")
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
