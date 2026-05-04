@@ -2,7 +2,7 @@
 
 An agentic RAG chatbot that helps UK pension members understand their retirement options through accurate, document-grounded guidance.
 
-**[Watch Demo](https://youtu.be/JNCk2r3U5ks)**
+**[Watch Demo](https://youtu.be/ighb_IwZCIE)**
 
 ---
 
