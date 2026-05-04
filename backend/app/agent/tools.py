@@ -1,13 +1,12 @@
-import asyncio
 import json
 
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
-from ..db.database import AsyncSessionLocal
-from ..db.models import UserProfile
-from ..vector.client import get_vector_store
+from ..services.db import SyncSessionLocal
+from ..services.db.models import UserProfile
+from ..services.vector.client import get_vector_store
 
 
 # ── Input / Output models ────────────────────────────────────────────────────
@@ -143,24 +142,10 @@ def search_pension_documents(query: str, n_results: int = 5) -> str:
     return json.dumps(output)
 
 
-def _run_async(coro):
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, coro)
-                return future.result()
-        return loop.run_until_complete(coro)
-    except RuntimeError:
-        return asyncio.run(coro)
-
-
-async def _get_profile(user_id: str) -> dict:
-    async with AsyncSessionLocal() as db:
-        from sqlalchemy import select
-        result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
-        profile = result.scalar_one_or_none()
+def get_profile_sync(user_id: str) -> dict:
+    from sqlalchemy import select
+    with SyncSessionLocal() as db:
+        profile = db.execute(select(UserProfile).where(UserProfile.user_id == user_id)).scalar_one_or_none()
         if profile is None:
             return {"found": False, "user_id": user_id}
         return {
@@ -177,22 +162,21 @@ async def _get_profile(user_id: str) -> dict:
         }
 
 
-async def _update_profile(user_id: str, field: str, value: float) -> dict:
+def update_profile_sync(user_id: str, field: str, value: float) -> dict:
     allowed = {
         "age", "current_pot", "monthly_personal", "monthly_employer",
         "target_annual_income", "retirement_age", "annual_growth_rate", "inflation_rate",
     }
     if field not in allowed:
         return {"error": f"Unknown field: {field}"}
-    async with AsyncSessionLocal() as db:
-        from sqlalchemy import select
-        result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
-        profile = result.scalar_one_or_none()
+    from sqlalchemy import select
+    with SyncSessionLocal() as db:
+        profile = db.execute(select(UserProfile).where(UserProfile.user_id == user_id)).scalar_one_or_none()
         if profile is None:
             profile = UserProfile(user_id=user_id)
             db.add(profile)
         setattr(profile, field, value)
-        await db.commit()
+        db.commit()
     return {"updated": field, "value": value}
 
 
@@ -202,8 +186,7 @@ def get_user_profile(user_id: str) -> str:
     Retrieve the user's saved financial profile.
     Call this at the start of every conversation to check what data is already known.
     """
-    result = _run_async(_get_profile(user_id))
-    return json.dumps(result)
+    return json.dumps(get_profile_sync(user_id))
 
 
 @tool(args_schema=UpdateUserProfileInput)
@@ -212,8 +195,7 @@ def update_user_profile(user_id: str, field: str, value: float) -> str:
     Persist a single field of the user's financial profile.
     Call this whenever the user confirms any financial detail.
     """
-    result = _run_async(_update_profile(user_id, field, value))
-    return json.dumps(result)
+    return json.dumps(update_profile_sync(user_id, field, value))
 
 
 @tool(args_schema=ProjectedPotInput)
