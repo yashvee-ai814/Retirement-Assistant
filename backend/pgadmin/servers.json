@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Retirement DB",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "retirement_db",
+      "Username": "retirement",
+      "SSLMode": "prefer",
+      "Tunnel": {}
+    }
+  }
+}
