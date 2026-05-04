@@ -82,6 +82,50 @@ flowchart TD
     Agent -->|"profiles · sessions"| PG["PostgreSQL :5432\nRelational DB"]
     Agent -->|"pure Python math"| Calc["Financial Calculators\n7 deterministic tools"]
 ```
+---
+
+## Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as React Frontend
+    participant API as FastAPI Backend
+    participant Agent as LangGraph Agent
+    participant LLM as Ollama LLM
+    participant Chroma as ChromaDB
+    participant Calc as Financial Calculators
+    participant PG as PostgreSQL
+
+    User->>UI: Ask pension withdrawal question
+    UI->>API: POST /chat
+    API->>PG: Load user profile and session history
+    PG-->>API: Profile and previous messages
+    API->>Agent: Send user query + context
+
+    Agent->>LLM: Interpret intent and decide next action
+    LLM-->>Agent: Tool selection decision
+
+    alt Document-grounded explanation needed
+        Agent->>Chroma: Search pension documents
+        Chroma-->>Agent: Relevant chunks with source metadata
+    end
+
+    alt Calculation needed
+        Agent->>Calc: Run deterministic calculator
+        Calc-->>Agent: Calculation result
+    end
+
+    Agent->>LLM: Generate grounded response using retrieved context and tool outputs
+    LLM-->>Agent: Final response
+    Agent->>PG: Store message, sources, tool calls, and calculations
+    Agent-->>API: Response payload
+    API-->>UI: Answer + citations + activity data
+    UI-->>User: Display explanation, sources, and tool activity
+```
+
+---
 
 ### Service Ports
 
