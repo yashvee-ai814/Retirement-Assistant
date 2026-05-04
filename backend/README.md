@@ -6,11 +6,11 @@ FastAPI backend hosting a LangGraph agentic assistant with PostgreSQL persistenc
 
 ## What it Does
 
-- Serves a REST API consumed by the React frontend
-- Runs a LangGraph agent that selects tools based on the user's query
-- Persists users, sessions, messages, tool calls, and calculations to PostgreSQL
-- Ingests pension PDFs into ChromaDB on startup and via the Admin API
-- Validates all input and output through a guardrails layer before touching the LLM
+- Runs a LangGraph agent backed by Ollama (`gpt-oss:120b-cloud`)
+- Provides REST endpoints for auth, chat, profile management, and document administration
+- Ingests pension PDFs into ChromaDB on startup for semantic search
+- Persists all conversations, tool calls, and user profiles in PostgreSQL
+- Applies input/output guardrails against injection and off-topic queries
 
 ---
 
@@ -20,67 +20,65 @@ FastAPI backend hosting a LangGraph agentic assistant with PostgreSQL persistenc
 backend/
 ├── Dockerfile
 ├── pyproject.toml
-├── initdb/01_privileges.sql     PostgreSQL grants run on first container start
-├── pgadmin/servers.json         pgAdmin pre-configured connection
+├── initdb/
+│   └── 01_privileges.sql      PostgreSQL user grants (run on first start)
+├── pgadmin/
+│   └── servers.json           pgAdmin pre-configured server connection
 └── app/
-    ├── main.py                  FastAPI app creation, CORS, routers, lifespan
+    ├── main.py                FastAPI app creation, CORS, routers, lifespan
     ├── core/
-    │   ├── config.py            pydantic-settings (all env vars)
-    │   ├── logger.py            Shared logger factory
-    │   └── middleware.py        HTTP request/response logging
+    │   ├── config.py          pydantic-settings (all env vars)
+    │   ├── logger.py          Shared logger factory
+    │   └── middleware.py      HTTP request/response logging middleware
     ├── agent/
-    │   ├── graph.py             LangGraph StateGraph + MemorySaver compile
-    │   ├── nodes.py             agent_node, route_after_agent
-    │   ├── state.py             RetirementRAGState (message accumulator)
-    │   └── tools.py             11 tool definitions + ALL_TOOLS list
+    │   ├── graph.py           LangGraph StateGraph + MemorySaver compile
+    │   ├── nodes.py           agent_node + route_after_agent
+    │   ├── state.py           RetirementRAGState (message accumulator)
+    │   └── tools.py           11 tool definitions + ALL_TOOLS list
     ├── services/
     │   ├── db/
-    │   │   ├── database.py      Async + sync SQLAlchemy engines; init_db()
-    │   │   ├── models.py        ORM models (User, Session, Message, etc.)
-    │   │   └── sessions.py      MemorySaver checkpointer helper
+    │   │   ├── database.py    Async + sync SQLAlchemy engines; init_db()
+    │   │   ├── models.py      ORM models (User, Session, Message, etc.)
+    │   │   └── sessions.py    MemorySaver checkpointer helper
     │   ├── vector/
-    │   │   ├── client.py        ChromaDB HTTP client + OllamaEmbeddings factory
-    │   │   ├── ingest.py        PDF → chunks → ChromaDB + DB record
-    │   │   └── documents.py     /admin/documents router
+    │   │   ├── client.py      ChromaDB HTTP client + OllamaEmbeddings factory
+    │   │   ├── ingest.py      PDF → chunks → ChromaDB + DB record
+    │   │   └── documents.py   /admin/documents router
     │   └── shared/
-    │       ├── auth.py          /auth router (login, register, me)
-    │       ├── chat.py          /chat and /sessions routers
-    │       ├── guardrails.py    Input/output safety filters
-    │       ├── models.py        Pydantic request/response models
-    │       └── profile.py       /users/{id}/profile router
+    │       ├── auth.py        /auth router (login, register, me)
+    │       ├── chat.py        /chat and /sessions routers
+    │       ├── guardrails.py  Input/output safety filters
+    │       ├── models.py      Pydantic request/response models
+    │       └── profile.py     /users/{id}/profile router
     └── data/
-        ├── prompts.json         System prompt + guardrail messages
-        └── docs/                PDF knowledge base (place PDFs here — gitignored)
+        ├── prompts.json       System prompt + guardrail messages
+        └── docs/              PDF knowledge base (place PDFs here — gitignored)
 ```
 
 ---
 
 ## Tech Stack
 
-| Concern | Choice |
-|---|---|
-| Framework | FastAPI |
-| Agent runtime | LangGraph >= 0.2 |
-| LLM client | langchain-ollama ChatOllama |
-| Embeddings | OllamaEmbeddings — nomic-embed-text |
-| Vector store | ChromaDB via langchain-chroma |
-| ORM | SQLAlchemy 2.0 — asyncpg (async) + psycopg2-binary (sync) |
-| Validation | Pydantic v2 |
-| Settings | pydantic-settings |
-| Package manager | uv |
-| Server | uvicorn |
+| Concern         | Choice                                                              |
+|-----------------|---------------------------------------------------------------------|
+| Framework       | FastAPI                                                             |
+| Agent runtime   | LangGraph ≥ 0.2                                                     |
+| LLM client      | `langchain-ollama` — `ChatOllama`                                   |
+| Embeddings      | `OllamaEmbeddings` — `nomic-embed-text`                             |
+| Vector store    | ChromaDB via `langchain-chroma`                                     |
+| ORM             | SQLAlchemy 2.0 — async (`asyncpg`) + sync (`psycopg2-binary`)       |
+| Validation      | Pydantic v2                                                         |
+| Settings        | `pydantic-settings`                                                 |
+| Package manager | `uv`                                                                |
+| Server          | `uvicorn`                                                           |
 
 ---
 
 ## Prerequisites
 
 - Python 3.12+
-- `uv` — `pip install uv`
-- Ollama running with both models pulled:
-  ```bash
-  ollama pull gpt-oss:120b-cloud
-  ollama pull nomic-embed-text
-  ```
+- [`uv`](https://github.com/astral-sh/uv): `pip install uv`
+- [Ollama](https://ollama.com) running with both models pulled (see root README)
 
 ---
 
@@ -88,12 +86,12 @@ backend/
 
 ```bash
 cd backend
-cp ../.env.example .env   # edit CHROMA_HOST and DATABASE_URL to use localhost
+cp ../.env.example .env
 uv sync
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-Interactive API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+Interactive API docs: http://localhost:8000/docs
 
 ---
 
@@ -104,18 +102,20 @@ Interactive API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 docker compose up backend --build
 ```
 
+The backend connects to Ollama on the Mac host via `host.docker.internal:11434`.
+
 ---
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://retirement:retirement@db:5432/retirement_db` | Async PostgreSQL connection string |
-| `CHROMA_HOST` | `chroma` | ChromaDB hostname |
-| `CHROMA_PORT` | `8001` | ChromaDB port |
-| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | `gpt-oss:120b-cloud` | LLM model name |
-| `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Embedding model name |
+| Variable             | Default                                                                   | Description          |
+|----------------------|---------------------------------------------------------------------------|----------------------|
+| `DATABASE_URL`       | `postgresql+asyncpg://retirement:retirement@localhost:5432/retirement_db` | PostgreSQL connection |
+| `CHROMA_HOST`        | `localhost`                                                               | ChromaDB host        |
+| `CHROMA_PORT`        | `8001`                                                                    | ChromaDB port        |
+| `OLLAMA_BASE_URL`    | `http://localhost:11434`                                                  | Ollama server URL    |
+| `OLLAMA_MODEL`       | `gpt-oss:120b-cloud`                                                      | LLM model name       |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text`                                                        | Embedding model name |
 
 ---
 
@@ -123,107 +123,152 @@ docker compose up backend --build
 
 ### Auth — `/auth`
 
-**POST /auth/login**
-- Request: `{ "username": "string" }`
-- Response: `{ "user_id": int, "username": "string" }`
-- 404 if username not found
+#### `POST /auth/login`
+Sign in by username.
+```json
+// Request
+{ "username": "alice" }
 
-**POST /auth/register**
-- Request: `{ "username": "string" }`
-- Response: `{ "user_id": int, "username": "string", "created": true }`
-- Status: 201
-- 409 if username already taken
+// Response 200
+{ "user_id": "uuid", "username": "alice" }
+// 404 if user not found
+```
 
-**GET /auth/me?user_id={id}**
-- Response: `{ "user_id": int, "username": "string" }`
+#### `POST /auth/register`
+Create a new account.
+```json
+// Request
+{ "username": "alice" }
+
+// Response 201
+{ "user_id": "uuid", "username": "alice", "created": true }
+// 409 if username already taken
+```
+
+#### `GET /auth/me?user_id={id}`
+```json
+{ "user_id": "uuid", "username": "alice" }
+```
 
 ---
 
 ### Profile — `/users`
 
-**GET /users/{user_id}/profile**
-- Response: `UserProfileData` — all fields nullable:
-  `age`, `current_pot`, `monthly_personal`, `monthly_employer`,
-  `target_annual_income`, `retirement_age`, `annual_growth_rate`, `inflation_rate`
+#### `GET /users/{user_id}/profile`
+Returns the stored financial profile. All fields are nullable.
 
-**PUT /users/{user_id}/profile**
-- Request: any subset of profile fields
-- Response: updated `UserProfileData`
+```json
+{
+  "age": 54,
+  "current_pot": 120000.0,
+  "monthly_personal": 500.0,
+  "monthly_employer": 250.0,
+  "target_annual_income": 30000.0,
+  "retirement_age": 67,
+  "annual_growth_rate": 0.05,
+  "inflation_rate": 0.025
+}
+```
+
+#### `PUT /users/{user_id}/profile`
+Update any subset of profile fields. Returns the updated profile.
 
 ---
 
 ### Chat — `/chat`, `/sessions`
 
-**POST /chat**
-- Request:
-  ```json
-  {
-    "session_id": "uuid-string",
-    "user_id": 1,
-    "message": "What are my pension options?",
-    "resume_input": null
-  }
-  ```
-- Response:
-  ```json
-  {
-    "session_id": "uuid-string",
-    "reply": "...",
-    "status": "complete",
-    "pending_interrupt": null,
-    "tool_calls_used": [{ "tool": "search_pension_documents", "args": {}, "result": "..." }],
-    "sources": [{ "filename": "doc.pdf", "page": 2, "excerpt": "..." }]
-  }
-  ```
-- `status` is `"complete"` or `"awaiting_clarification"` (when `ask_human` fires)
+#### `POST /chat`
+Send a message or resume a clarification interrupt.
 
-**GET /sessions?user_id={id}**
-- Response: list of `{ "id", "title", "created_at", "updated_at" }`
+```json
+// Request
+{
+  "session_id": "uuid",
+  "user_id": "uuid",
+  "message": "Am I on track for retirement?",
+  "resume_input": null
+}
 
-**GET /sessions/{id}/tool-calls?user_id={id}**
-- Response: tool call history for the session
+// Response
+{
+  "session_id": "uuid",
+  "reply": "Based on your profile...",
+  "status": "complete",
+  "pending_interrupt": null,
+  "tool_calls_used": [
+    { "name": "calculate_projected_pot", "args": {}, "result": "..." }
+  ],
+  "sources": [
+    { "filename": "guide.pdf", "page": 3, "excerpt": "..." }
+  ]
+}
+```
 
-**DELETE /sessions/{id}?user_id={id}**
-- Deletes session and all associated messages
+`status`: `complete` | `awaiting_clarification`
+
+When `status` is `awaiting_clarification`, send the user's answer as `resume_input`:
+```json
+{ "session_id": "...", "user_id": "...", "resume_input": { "answer": "67" } }
+```
+
+#### `GET /sessions?user_id={id}`
+List of `[{ "id", "title", "created_at", "updated_at" }]`
+
+#### `GET /sessions/{id}/tool-calls?user_id={id}`
+All tool calls recorded for a session.
+
+#### `DELETE /sessions/{id}?user_id={id}`
+Delete the session and all its messages.
 
 ---
 
 ### Documents — `/admin`
 
-**POST /admin/documents**
-- Multipart PDF upload
-- Response: `DocumentInfo { id, original_name, chunk_count, status, ingested_at }`
+#### `POST /admin/documents`
+Upload a PDF (multipart). Returns `DocumentInfo`.
+```json
+{
+  "id": "uuid",
+  "original_name": "pension-guide.pdf",
+  "chunk_count": 42,
+  "status": "ingested",
+  "ingested_at": "2026-05-04T12:00:00Z",
+  "uploaded_by": "admin"
+}
+```
 
-**GET /admin/documents**
-- Response: list of `DocumentInfo`
+#### `GET /admin/documents`
+List all ingested documents.
 
-**DELETE /admin/documents/{id}**
-- Removes from ChromaDB, database, and disk
+#### `DELETE /admin/documents/{id}`
+Remove document from ChromaDB and PostgreSQL; delete file from disk.
 
 ---
 
 ### Health
 
-**GET /health**
-- Response: `{ "status": "ok", "model": "gpt-oss:120b-cloud" }`
+#### `GET /health`
+```json
+{ "status": "ok", "model": "gpt-oss:120b-cloud" }
+```
 
 ---
 
 ## Agent Tools
 
-| Tool | Input Schema | Output Schema | Description | When Called |
-|---|---|---|---|---|
-| search_pension_documents | `query: str`, `n_results: int = 5` | JSON array of `{ page_content, filename, page, score }` | Semantic search over ingested pension PDFs | User asks a specific pension rule or product question |
-| get_user_profile | `user_id: int` | Profile dict or `{ "found": false }` | Retrieve stored financial profile | Profile data not yet in conversation |
-| update_user_profile | `user_id: int`, `field: str`, `value: Any` | `{ "updated": true, "value": Any }` | Persist a confirmed financial detail | User confirms a specific financial figure |
-| calculate_projected_pot | `current_pot`, `monthly_personal`, `monthly_employer`, `annual_growth_rate`, `years` | `{ projected_pot, total_contributions, total_growth }` | FV = PV*(1+r)^n + PMT_annual*((1+r)^n - 1)/r | User asks "how much will I have at retirement?" |
-| calculate_drawdown_income | `pot_value`, `drawdown_rate`, `state_pension_annual` | `{ annual_income, drawdown_from_pot, state_pension_contribution }` | Annual income from drawdown + state pension | User asks about drawdown income |
-| calculate_monthly_savings_needed | `target_pot`, `current_pot`, `annual_growth_rate`, `years` | `{ monthly_savings_needed, total_to_accumulate }` | Monthly contributions needed to hit a target pot | User asks how much to save per month |
-| calculate_shortfall | `income_goal`, `projected_annual_income` | `{ shortfall, surplus, is_on_track }` | Gap between goal income and projected income | User asks if they are on track |
-| calculate_readiness_score | `projected_income`, `income_goal` | `{ score (0–100), label }` — >= 70 = On track, 40–69 = Needs attention, < 40 = At risk | Readiness score with label | After shortfall calc to summarise position |
-| calculate_inflation_adjusted_goal | `current_goal`, `inflation_rate`, `years` | `{ adjusted_goal, inflation_uplift }` | Inflation-uplifted income goal | User asks about inflation impact |
-| get_uk_state_pension_info | `current_age`, `retirement_age` | `{ annual_state_pension, eligible_from_age, years_until_eligible, note }` — £11,502/yr from age 67 | UK state pension eligibility and amount | User asks about state pension |
-| ask_human | `question: str` | LangGraph interrupt — execution pauses | Clarifying question to user | Agent needs missing information before proceeding |
+| Tool | Inputs | Outputs | Description |
+|------|--------|---------|-------------|
+| `search_pension_documents` | `query`, `n_results` (1–20) | `[{page_content, filename, page, score}]` | Semantic search over ingested PDFs |
+| `get_user_profile` | `user_id` | `{found, age, current_pot, …}` | Fetch stored financial profile |
+| `update_user_profile` | `user_id`, `field`, `value` | `{updated, value}` | Persist a single profile field |
+| `calculate_projected_pot` | `current_pot`, `monthly_personal`, `monthly_employer`, `annual_growth_rate`, `years` | `{projected_pot, total_contributions, total_growth}` | FV = PV·(1+r)^n + PMT·((1+r)^n−1)/r |
+| `calculate_drawdown_income` | `pot_value`, `drawdown_rate`, `state_pension_annual` | `{annual_income, drawdown_from_pot, state_pension_contribution}` | income = pot × rate + state pension |
+| `calculate_monthly_savings_needed` | `target_pot`, `current_pot`, `annual_growth_rate`, `years` | `{monthly_savings_needed, total_to_accumulate}` | PMT to reach target pot |
+| `calculate_shortfall` | `income_goal`, `projected_annual_income` | `{shortfall, surplus, is_on_track}` | Gap between goal and projection |
+| `calculate_readiness_score` | `projected_income`, `income_goal` | `{score (0–100), label}` | ≥70 On track · 40–69 Needs attention · <40 At risk |
+| `calculate_inflation_adjusted_goal` | `current_goal`, `inflation_rate`, `years` | `{adjusted_goal, inflation_uplift}` | FV = goal × (1+rate)^years |
+| `get_uk_state_pension_info` | `current_age`, `retirement_age` | `{annual_state_pension, eligible_from_age, years_until_eligible, note}` | £11,502/yr from age 67 |
+| `ask_human` | `question` | LangGraph interrupt | Pause graph to ask user a clarifying question |
 
 ---
 
@@ -231,59 +276,67 @@ docker compose up backend --build
 
 ```
 POST /chat
-  → guardrail check (input)
-  → LangGraph graph.invoke()
-      → agent node (LLM picks tools or responds)
-          ├── tool calls → tools node (ToolNode runs all tools) → back to agent
-          └── no tools → END
-  → guardrail check (output)
-  → response returned
+  │
+  ├─ guardrail check (input)
+  │
+  ├─ LangGraph graph.invoke()
+  │      │
+  │      └─ agent node  →  tool calls?  ─yes─→  tools node  →  back to agent
+  │                                     ─no──→  END
+  │
+  ├─ guardrail check (output)
+  │
+  └─ response returned
 ```
 
 ---
 
 ## Database Schema
 
-| Table | Key Columns |
-|---|---|
-| users | `id`, `username`, `login_count`, `last_login`, `created_at` |
-| login_events | `id`, `user_id`, `event_type`, `created_at` |
-| user_profiles | `id`, `user_id`, `age`, `current_pot`, `monthly_personal`, `monthly_employer`, `target_annual_income`, `retirement_age`, `annual_growth_rate`, `inflation_rate` |
-| sessions | `id` (UUID), `user_id`, `title`, `created_at`, `updated_at` |
-| messages | `id`, `session_id`, `role`, `content`, `sources`, `tool_call_ids`, `created_at` |
-| tool_calls | `id`, `session_id`, `tool_name`, `args`, `result`, `created_at` |
-| calculations | `id`, `user_id`, `session_id`, `calc_type`, `inputs`, `outputs`, `created_at` |
-| documents | `id`, `original_name`, `stored_name`, `chunk_count`, `status`, `ingested_at` |
+| Table           | Key Columns                                                                 |
+|-----------------|-----------------------------------------------------------------------------|
+| `users`         | `id` (uuid), `username`, `login_count`, `last_login_at`                    |
+| `login_events`  | `id`, `user_id`, `username`, `action` (login/register), `created_at`       |
+| `user_profiles` | `id`, `user_id`, `age`, `current_pot`, `monthly_personal`, `monthly_employer`, `target_annual_income`, `retirement_age`, `annual_growth_rate`, `inflation_rate` |
+| `sessions`      | `id` (uuid), `user_id`, `title`, `created_at`, `updated_at`               |
+| `messages`      | `id`, `session_id`, `role`, `content`, `sources` (JSON), `created_at`     |
+| `tool_calls`    | `id`, `session_id`, `name`, `args` (JSON), `result` (JSON), `created_at`  |
+| `calculations`  | `id`, `session_id`, `tool_name`, `inputs` (JSON), `outputs` (JSON)        |
+| `documents`     | `id`, `filename`, `original_name`, `chunk_count`, `status`, `ingested_at`, `uploaded_by` |
+
+Schema auto-migrates on every startup: `create_all` for new tables; `ALTER TABLE IF NOT EXISTS` for new columns.
 
 ---
 
 ## Document Ingestion
 
-Place `.pdf` files in `backend/app/data/docs/` — they are auto-ingested on every backend startup (idempotent; already-ingested docs are skipped by checking stored filenames).
+Place PDFs in `backend/app/data/docs/` — ingested automatically on startup. Already-ingested files (matched by filename) are skipped.
 
-Upload at runtime via **Admin > Documents** in the UI or `POST /admin/documents`.
+Upload via `POST /admin/documents` or the Admin page in the frontend.
 
-Chunking settings: `chunk_size=1000`, `chunk_overlap=200`, using LangChain `RecursiveCharacterTextSplitter`.
+**Chunking:** `RecursiveCharacterTextSplitter` — `chunk_size=1000`, `chunk_overlap=200`.
 
 ---
 
 ## Guardrails
 
-The guardrails layer runs before sending input to the LLM and after receiving output.
+`services/shared/guardrails.py` filters all input and output:
 
-- **Prompt injection** — blocks patterns like `ignore previous instructions`, `system:`, `<|im_start|>`
-- **Harmful topics** — blocks requests involving self-harm, violence, or illegal activity
-- **Off-topic** — queries longer than 8 words with no finance-related keywords are blocked
-- **Output validation** — strips any LLM output that begins with a refusal to answer finance questions
+- **Injection patterns** — blocks `ignore previous instructions`, SQL fragments, etc.
+- **Harmful topics** — blocks content outside the retirement/finance domain
+- **Off-topic** — blocks messages >8 words with no retirement/finance keywords
+- **Output validation** — checks LLM replies before returning to client
 
 ---
 
 ## Logging
 
-| Logger | Covers |
-|---|---|
-| `retirement.api` | FastAPI route handlers |
-| `retirement.http` | HTTP request/response middleware |
-| `retirement.agent` | LangGraph node execution |
-| `retirement.ingest` | PDF ingestion pipeline |
-| `retirement.guardrails` | Blocked inputs and outputs |
+All logs to stdout: `YYYY-MM-DDTHH:MM:SS [LEVEL] logger.name: message`
+
+| Logger                  | Coverage                                           |
+|-------------------------|----------------------------------------------------|
+| `retirement.api`        | App startup and shutdown                           |
+| `retirement.http`       | Every HTTP request — method, path, status, latency |
+| `retirement.agent`      | LLM invocations and tool selections                |
+| `retirement.ingest`     | Document ingestion per file                        |
+| `retirement.guardrails` | Blocked inputs/outputs with matched pattern        |
